@@ -1,66 +1,161 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400"></a></p>
+# Laracasts - Livewire Basics
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Tutorial from [laracasts.com](https://laracasts.com/series/livewire-basics)
 
-## About Laravel
+More informations about [Livewire](https://laravel-livewire.com/)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Section 1 - Introduction
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Episode 1 - How it Works
+    
+    // Install Livewire
+    composer require livewire/livewire
+    
+    // Create a livewire component
+    php artisan make:livewire counter
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+    // Add to main layout
+    @livewireStyles
+    @livewireScripts
 
-## Learning Laravel
+    // Insert livewire component to blade view
+    <livewire:counter />
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+    // app/Http/Livewire/Counter.php
+    public $count = 0;
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 1500 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+    public function increment()
+    {
+        $this->count++;
+    }
+    
+    // resources/views/livewire/counter.blade.php
+    <div>
+        <span>{{ $count }}</span>
+        <button wire:click="increment">+</button>
+    </div>
 
-## Laravel Sponsors
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+How Livewire works:
 
-### Premium Partners
+    // vendor/livewire/livewire/src/Controllers/HttpConnectionHandler.php
+    
+    class HttpConnectionHandler extends ConnectionHandler
+    {
+        public function __invoke()
+        {
+            $this->applyPersistentMiddleware();
+        
+            return $this->handle(
+                request([
+                    'fingerprint',
+                    'serverMemo',
+                    'updates',
+                ])
+            );
+        }
+    ...
+    
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[CMS Max](https://www.cmsmax.com/)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
-- **[Romega Software](https://romegasoftware.com)**
+    // vendor/livewire/livewire/src/Connection/ConnectionHandler.php
 
-## Contributing
+    abstract class ConnectionHandler
+    {
+        public function handle($payload)
+        {
+            return LifecycleManager::fromSubsequentRequest($payload)
+                ->boot()
+                ->hydrate()
+                ->renderToView()
+                ->dehydrate()
+                ->toSubsequentResponse();
+        }
+    }
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+    // vendor/livewire/livewire/src/LifecycleManager.php
 
-## Code of Conduct
+    public static function fromSubsequentRequest($payload)
+    {
+        dd( tap(new static, function ($instance) use ($payload) {
+            $instance->request = new Request($payload);
+            $instance->instance = app('livewire')->getInstance($instance->request->name(), $instance->request->id());
+        }) );
+    }
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+next step:
 
-## Security Vulnerabilities
+    // vendor/livewire/livewire/src/LifecycleManager.php
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+    public function hydrate()
+    {
+        foreach (static::$hydrationMiddleware as $class) {
+            $class::hydrate($this->instance, $this->request);
+        }
+        
+        dd($this); // show down
 
-## License
+        return $this;
+    }
+    
+you can view in browser:
+    
+    // dd($this);
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+    Livewire\LifecycleManager {#370 ▼
+        +request: Livewire\Request {#377 ▼
+            +fingerprint: array:5 [▼
+                "id" => "jf4DaXulYyCxD0MPC9p3"
+                "name" => "counter"
+                "locale" => "en"
+                "path" => "/"
+                "method" => "GET"
+                ]
+            +updates: array:1 [▶]
+            +memo: array:5 [▼
+                "children" => []
+                "errors" => []
+                "htmlHash" => "95c683c9"
+                "data" => array:1 [▼
+                    "count" => 0
+                    ]
+                "dataMeta" => []
+            ]
+        }
+        +instance: App\Http\Livewire\Counter {#376 ▼
+            +count: 1
+            +id: "jf4DaXulYyCxD0MPC9p3"
+
+    
+    // vendor/livewire/livewire/src/LifecycleManager.php
+
+    public function toSubsequentResponse()
+    {
+        dd($this);
+
+        return $this->response->toSubsequentResponse();
+    }
+
+you can view in browser:
+
+    Livewire\LifecycleManager {#370 ▼
+        +request: Livewire\Request {#377 ▶}
+        +instance: App\Http\Livewire\Counter {#376 ▶}
+        +response: Livewire\Response {#394 ▼
+            +request: Livewire\Request {#377 ▶}
+            +fingerprint: array:5 [▶]
+            +effects: array:2 [▼
+                "html" => """
+                    <div>
+                        Counter component
+                        <div>
+                            <span>1</span>
+                            <button wire:click="decrement">-</button>
+                            <button wire:click="increment">+</button>
+                        </div>
+                    </div>
+                    """
+                "dirty" => array:1 [▶]
+            ]
+            +memo: array:6 [▶]
+        }
+    }
